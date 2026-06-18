@@ -1,0 +1,18 @@
+# Top-level runtime deps for the dome-agent-flow shim.
+# Compile to requirements.txt with:
+#   uv pip compile requirements.in -o requirements.txt --python-version 3.12
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+pyyaml
+python-multipart          # proxy the invoice file upload to P3
+httpx                     # call P3 /api/extract and P2 /deliberate/sync
+slowapi                   # per-IP rate limiting (house pattern)
+structlog
+sentry-sdk[fastapi]
+supabase                  # invoice_runs + governance_events writes (service role)
+
+# Shared library — pinned to the same known-good commit the other tools use
+# (provides dome_core.governance, dome_core.auth.verify_jwt, dome_core.db).
+dome-core @ git+https://github.com/Dome-Layer/dome-core.git@b65bcf0548b102c69b5ae45014cb51f09ad99f56

@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "@dome-layer/dome-ui/tokens.css";
+@import "@dome-layer/dome-ui/components.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base ───────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  transition: background var(--duration-default) var(--ease-in-out),
+              color var(--duration-default) var(--ease-in-out);
+}
+
+/* ─── Site header ────────────────────────────────────────────────── */
+.site-header {
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 0.5px solid var(--color-border-default);
+}
+
+[data-theme="dark"] .site-header {
+  background: rgba(10, 10, 10, 0.90);
+  border-bottom-color: var(--color-border-subtle);
+}
+
+/* ─── Focus ring — WCAG 2.1 AA ──────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid rgba(0, 128, 255, 0.5);
+  outline-offset: 2px;
+}
+
+/* ─── Staggered fade-in ─────────────────────────────────────────── */
+.section-animate {
+  opacity: 0;
+  animation: fadeUp 0.4s ease forwards;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-animate { animation: none; opacity: 1; }
+}

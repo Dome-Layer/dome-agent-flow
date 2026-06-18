@@ -1,0 +1,76 @@
+# Invoice-approval policy for the DOME Governed Agent Flow (P5).
+#
+# This file is the committed DEFAULT. At runtime a per-tenant row in the Supabase
+# `approval_policies` table may override any of these keys, so the same engine can
+# enforce different client policies without a code change ("change a threshold,
+# re-run"). Every evaluation is written into a `rules_evaluated` governance event,
+# so the policy decision itself is auditable in P6.
+version: 1
+
+# ── Buying entity context ─────────────────────────────────────────────────────
+home_country: IT          # ISO 3166-1 alpha-2 of the paying entity
+base_currency: EUR        # ISO 4217
+
+# ── Extraction-quality gate (overall_confidence from P3) ──────────────────────
+low_confidence_threshold: 0.60
+
+# ── Invoice-date sanity ───────────────────────────────────────────────────────
+max_future_days: 5        # invoice dated > today + 5d is anomalous
+max_age_years: 2          # invoice older than 2y is stale
+
+# ── Amount → required approver role (in base_currency) ────────────────────────
+# First tier whose `max` is null or >= amount wins. role "auto" = may auto-approve.
+amount_tiers:
+  - { max: 1000,  role: auto }
+  - { max: 10000, role: manager }
+  - { max: 50000, role: director }
+  - { max: null,  role: cfo }
+
+# ── Per-category auto-approve ceiling + required checks ───────────────────────
+# `auto_ceiling` only TIGHTENS the global auto ceiling (the "auto" tier max); it
+# never raises it. Set to 0 to force review of an entire category. Categories not
+# listed inherit the global auto ceiling.
+categories:
+  office_supplies:       { auto_ceiling: 1000 }
+  professional_services: { auto_ceiling: 1000 }
+  marketing:             { auto_ceiling: 1000 }
+  travel:                { auto_ceiling: 500 }
+  it_hardware:           { auto_ceiling: 0, require_po: true }   # PO + review always
+  capex:                 { auto_ceiling: 0, require_po: true }   # capital — always reviewed
+
+# ── Country rules ─────────────────────────────────────────────────────────────
+allowed_currencies:
+  IT: [EUR]
+  DE: [EUR]
+  FR: [EUR]
+  ES: [EUR]
+  GB: [GBP, EUR]
+  US: [USD]
+  CH: [CHF, EUR]
+high_risk_countries: [IR, KP, SY, RU, BY]    # sanctioned / high-risk → hard reject
+vat_formats:
+  IT: '^IT[0-9]{11}$'
+  DE: '^DE[0-9]{9}$'
+  FR: '^FR[0-9A-Z]{2}[0-9]{9}$'
+  ES: '^ES[0-9A-Z][0-9]{7}[0-9A-Z]$'
+  GB: '^GB([0-9]{9}|[0-9]{12})$'
+
+# ── Vendor governance ─────────────────────────────────────────────────────────
+# Vendors not on the allowlist are treated as NEW (mandatory human review + KYC);
+# auto-approve is never available for a new vendor.
+vendor_allowlist:
+  - Acme GmbH
+  - Globex SA
+  - Initech Srl
+  - Umbrella Industries Ltd
+
+# ── When to consult the LLM Council (P2) before a human decides ───────────────
+council:
+  cross_border: true            # vendor country != home_country
+  new_vendor_over: 10000        # new vendor above this amount
+  low_confidence_below: 0.60    # extraction confidence below this
+
+# ── Four-eyes master switch ───────────────────────────────────────────────────
+# When true, NOTHING auto-approves (every run needs a named approver). May also be
+# forced at deploy time via the REQUIRE_HUMAN_ON_ALL env var.
+require_human_on_all: false

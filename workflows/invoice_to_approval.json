@@ -1,0 +1,155 @@
+{
+  "name": "Invoice to Approval — Governed Agent Flow",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Submit an invoice",
+        "formDescription": "Upload an invoice to run it through the governed agent flow.",
+        "formFields": {
+          "values": [
+            { "fieldLabel": "Invoice file", "fieldType": "file", "requiredField": true },
+            {
+              "fieldLabel": "Category",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  { "option": "office_supplies" },
+                  { "option": "professional_services" },
+                  { "option": "it_hardware" },
+                  { "option": "travel" },
+                  { "option": "marketing" },
+                  { "option": "capex" }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.1,
+      "position": [0, 300],
+      "name": "On invoice upload",
+      "webhookId": "agent-flow-invoice-form"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTFLOW_SHIM_BASE }}/api/v1/runs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"source\": \"form\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 300],
+      "name": "Create run",
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_IN_N8N", "name": "Agent Flow Service Key" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTFLOW_SHIM_BASE }}/api/v1/runs/{{ $('Create run').item.json.workflow_run_id }}/extract",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "contentType": "multipart-form-data",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "parameterType": "formBinaryData", "name": "file", "inputDataFieldName": "Invoice_file" },
+            { "name": "category", "value": "={{ $('On invoice upload').item.json.Category }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "name": "Extract invoice (P3)",
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_IN_N8N", "name": "Agent Flow Service Key" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTFLOW_SHIM_BASE }}/api/v1/runs/{{ $('Create run').item.json.workflow_run_id }}/rules",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300],
+      "name": "Evaluate rules",
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_IN_N8N", "name": "Agent Flow Service Key" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.decision.decision }}",
+              "rightValue": "route_to_council",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [960, 300],
+      "name": "Route to council?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.AGENTFLOW_SHIM_BASE }}/api/v1/runs/{{ $('Create run').item.json.workflow_run_id }}/council",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 200],
+      "name": "Council brief (P2)",
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_IN_N8N", "name": "Agent Flow Service Key" }
+      }
+    }
+  ],
+  "connections": {
+    "On invoice upload": {
+      "main": [[{ "node": "Create run", "type": "main", "index": 0 }]]
+    },
+    "Create run": {
+      "main": [[{ "node": "Extract invoice (P3)", "type": "main", "index": 0 }]]
+    },
+    "Extract invoice (P3)": {
+      "main": [[{ "node": "Evaluate rules", "type": "main", "index": 0 }]]
+    },
+    "Evaluate rules": {
+      "main": [[{ "node": "Route to council?", "type": "main", "index": 0 }]]
+    },
+    "Route to council?": {
+      "main": [
+        [{ "node": "Council brief (P2)", "type": "main", "index": 0 }],
+        []
+      ]
+    }
+  }
+}

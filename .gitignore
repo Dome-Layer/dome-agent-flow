@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# n8n local data (never commit credentials or the encrypted store)
+n8n/.n8n/
+n8n/data/
+
+# Per-tool spec is local-only (DOME convention)
+TOOL_CONTEXT.md
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
