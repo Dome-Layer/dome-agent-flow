@@ -26,6 +26,9 @@ n8n/data/
 # Per-tool spec is local-only (DOME convention)
 TOOL_CONTEXT.md
 
+# Claude Code local settings (never commit)
+.claude/
+
 # OS / editor
 .DS_Store
 .idea/
