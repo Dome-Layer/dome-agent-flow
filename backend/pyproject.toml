@@ -1,7 +1,21 @@
-[tool.pytest.ini_options]
-pythonpath = ["."]
-testpaths = ["tests"]
-
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+# E501 (line-too-long) is intentionally disabled — `ruff format` handles layout,
+# and data literals / prompt strings may exceed the nominal length.
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+# Retrofit-friendly codes disabled for the first green run (fire heavily on
+# third-party type weakness: Supabase Client, slowapi, structlog). Matches the
+# other DOME Python repos; tighten incrementally as a follow-up.
+disable_error_code = ["attr-defined", "arg-type", "assignment", "override", "union-attr", "index", "call-overload"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

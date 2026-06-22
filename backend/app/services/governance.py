@@ -24,9 +24,19 @@ AGENT_ID = "agent-flow"  # DA-013 frozen canonical id
 
 # Columns that exist on governance_events; extra keys are dropped before insert.
 _COLUMNS = {
-    "agent_id", "action_type", "timestamp", "input_hash", "input_type",
-    "output_summary", "rules_applied", "rules_triggered", "confidence",
-    "human_in_loop", "user_id", "workflow_run_id", "metadata",
+    "agent_id",
+    "action_type",
+    "timestamp",
+    "input_hash",
+    "input_type",
+    "output_summary",
+    "rules_applied",
+    "rules_triggered",
+    "confidence",
+    "human_in_loop",
+    "user_id",
+    "workflow_run_id",
+    "metadata",
 }
 
 
@@ -80,7 +90,9 @@ def emit_event(
             client.table("governance_events").insert(
                 {k: v for k, v in payload.items() if k in _COLUMNS}
             ).execute()
-            logger.info("governance_event", action_type=action_type, workflow_run_id=workflow_run_id)
+            logger.info(
+                "governance_event", action_type=action_type, workflow_run_id=workflow_run_id
+            )
     except Exception as e:  # never break the flow on an audit-write failure
         logger.error("governance_event_failed", error=str(e), action_type=action_type)
     return event

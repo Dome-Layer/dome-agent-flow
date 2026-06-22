@@ -18,9 +18,8 @@ from app.api.deps import Principal, require_principal, require_user
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.runs import CouncilRequest, CreateRunRequest, DecisionRequest, RunRecord
-from app.services import governance
+from app.services import governance, upstream
 from app.services import runs as runs_svc
-from app.services import upstream
 from app.services.normalize import invoice_from_extraction
 from app.services.rules import evaluate
 
@@ -42,8 +41,9 @@ def _gen_run_id() -> str:
 def _load(workflow_run_id: str) -> RunRecord:
     run = runs_svc.get_run(workflow_run_id)
     if run is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"Run {workflow_run_id} not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Run {workflow_run_id} not found"
+        )
     return run
 
 
@@ -63,8 +63,9 @@ def _council_context(run: RunRecord) -> str:
     return f"Policy engine decision: {d.decision if d else 'n/a'}. Triggered rules: {flags}."
 
 
-def _emit_terminal(run: RunRecord, *, approved: bool, approver_id: Optional[str],
-                   note: Optional[str]) -> None:
+def _emit_terminal(
+    run: RunRecord, *, approved: bool, approver_id: Optional[str], note: Optional[str]
+) -> None:
     run.approver_id = approver_id
     run.decision_note = note
     run.status = "approved" if approved else "rejected"
@@ -148,8 +149,9 @@ async def rules(
 ) -> RunRecord:
     run = _load(workflow_run_id)
     if run.invoice is None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="Run has no extracted invoice yet")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Run has no extracted invoice yet"
+        )
 
     known = runs_svc.known_dedupe_keys(exclude=workflow_run_id)
     decision = evaluate(
@@ -198,8 +200,9 @@ async def council(
 ) -> RunRecord:
     run = _load(workflow_run_id)
     if run.invoice is None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="Run has no extracted invoice yet")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Run has no extracted invoice yet"
+        )
     body = body or CouncilRequest()
     verdict = await upstream.council_deliberate(
         body.question or _council_question(run),
@@ -228,9 +231,11 @@ async def decision(
     runs_svc.update_run(run)
     await upstream.resume_n8n(
         run.resume_url,
-        {"workflow_run_id": workflow_run_id,
-         "decision": "approve" if approved else "reject",
-         "approver_id": principal.user_id},
+        {
+            "workflow_run_id": workflow_run_id,
+            "decision": "approve" if approved else "reject",
+            "approver_id": principal.user_id,
+        },
     )
     return run
 

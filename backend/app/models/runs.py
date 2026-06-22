@@ -14,24 +14,24 @@ from app.models.schemas import Invoice, PolicyDecision
 
 # Lifecycle: a run advances through these states.
 RUN_STATUSES = (
-    "received",          # POST /runs
-    "extracted",         # P3 extraction stored
-    "council",           # routed to P2 (awaiting/!consulted)
+    "received",  # POST /runs
+    "extracted",  # P3 extraction stored
+    "council",  # routed to P2 (awaiting/!consulted)
     "pending_approval",  # waiting on a human
-    "approved",          # terminal
-    "rejected",          # terminal
+    "approved",  # terminal
+    "rejected",  # terminal
 )
 
 
 class CreateRunRequest(BaseModel):
-    source: str = "manual"            # "email" | "form" | "manual" | "webhook"
+    source: str = "manual"  # "email" | "form" | "manual" | "webhook"
     filename: Optional[str] = None
     # n8n's Wait-node resume URL, stored so /decision can continue the paused run.
     resume_url: Optional[str] = None
 
 
 class DecisionRequest(BaseModel):
-    decision: str                     # "approve" | "reject"
+    decision: str  # "approve" | "reject"
     note: Optional[str] = None
 
 
