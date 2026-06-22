@@ -28,7 +28,7 @@ deprecation==2.1.0
     #   storage3
 dome-core @ git+https://github.com/Dome-Layer/dome-core.git@b65bcf0548b102c69b5ae45014cb51f09ad99f56
     # via -r requirements.in
-fastapi==0.137.2
+fastapi==0.137.1
     # via
     #   -r requirements.in
     #   dome-core
