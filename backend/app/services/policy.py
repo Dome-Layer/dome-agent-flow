@@ -18,7 +18,7 @@ _DEFAULT_POLICY_PATH = Path(__file__).resolve().parents[2] / "policy.yaml"
 
 
 class AmountTier(BaseModel):
-    max: Optional[float] = None   # null = unbounded ceiling
+    max: Optional[float] = None  # null = unbounded ceiling
     role: str
 
 

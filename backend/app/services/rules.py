@@ -34,59 +34,99 @@ def _escalate(role: str, floor: str) -> str:
 
 def _missing_invoice_number(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     if not inv.invoice_number:
-        return [RuleFlag(rule_id="missing_invoice_number", severity="error",
-                         message="No invoice number — cannot de-duplicate or reconcile.")]
+        return [
+            RuleFlag(
+                rule_id="missing_invoice_number",
+                severity="error",
+                message="No invoice number — cannot de-duplicate or reconcile.",
+            )
+        ]
     return []
 
 
 def _missing_vendor(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     if not inv.vendor_name:
-        return [RuleFlag(rule_id="missing_vendor", severity="error",
-                         message="No vendor identified on the invoice.")]
+        return [
+            RuleFlag(
+                rule_id="missing_vendor",
+                severity="error",
+                message="No vendor identified on the invoice.",
+            )
+        ]
     return []
 
 
 def _missing_amount(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     if inv.amount is None or inv.amount <= 0:
-        return [RuleFlag(rule_id="missing_amount", severity="error",
-                         message="Invoice amount is missing or non-positive.")]
+        return [
+            RuleFlag(
+                rule_id="missing_amount",
+                severity="error",
+                message="Invoice amount is missing or non-positive.",
+            )
+        ]
     return []
 
 
 def _high_risk_country(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     if inv.country and inv.country.upper() in {c.upper() for c in policy.high_risk_countries}:
-        return [RuleFlag(rule_id="high_risk_country", severity="error",
-                         message=f"Vendor country {inv.country} is on the high-risk / sanctioned list.")]
+        return [
+            RuleFlag(
+                rule_id="high_risk_country",
+                severity="error",
+                message=f"Vendor country {inv.country} is on the high-risk / sanctioned list.",
+            )
+        ]
     return []
 
 
 def _duplicate_invoice(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     if inv.invoice_number and inv.dedupe_key() in ctx.get("known_keys", set()):
-        return [RuleFlag(rule_id="duplicate_invoice", severity="error",
-                         message="An invoice with the same vendor, number and amount was already processed.")]
+        return [
+            RuleFlag(
+                rule_id="duplicate_invoice",
+                severity="error",
+                message="An invoice with the same vendor, number and amount was already processed.",
+            )
+        ]
     return []
 
 
 def _new_vendor(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     if policy.is_new_vendor(inv.vendor_name):
-        return [RuleFlag(rule_id="new_vendor", severity="warning",
-                         message="Vendor is not on the allowlist — KYC / first-payment review required.")]
+        return [
+            RuleFlag(
+                rule_id="new_vendor",
+                severity="warning",
+                message="Vendor is not on the allowlist — KYC / first-payment review required.",
+            )
+        ]
     return []
 
 
 def _category_over_auto_ceiling(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     if inv.amount is not None and inv.amount > policy.category_auto_ceiling(inv.category):
-        return [RuleFlag(rule_id="category_over_auto_ceiling", severity="warning",
-                         message=f"Amount {inv.amount:.2f} exceeds the auto-approval ceiling for "
-                                 f"category '{inv.category or 'default'}'.")]
+        return [
+            RuleFlag(
+                rule_id="category_over_auto_ceiling",
+                severity="warning",
+                message=f"Amount {inv.amount:.2f} exceeds the auto-approval ceiling for "
+                f"category '{inv.category or 'default'}'.",
+            )
+        ]
     return []
 
 
 def _missing_po(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     cat = policy.categories.get(inv.category) if inv.category else None
     if cat and cat.require_po and not inv.po_number:
-        return [RuleFlag(rule_id="missing_po", severity="warning",
-                         message=f"Category '{inv.category}' requires a purchase order, but none was found.")]
+        return [
+            RuleFlag(
+                rule_id="missing_po",
+                severity="warning",
+                message=f"Category '{inv.category}' requires a purchase order, but none was found.",
+            )
+        ]
     return []
 
 
@@ -94,9 +134,14 @@ def _currency_not_allowed(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleF
     if inv.country and inv.currency:
         allowed = policy.allowed_currencies.get(inv.country.upper())
         if allowed and inv.currency.upper() not in {c.upper() for c in allowed}:
-            return [RuleFlag(rule_id="currency_not_allowed", severity="warning",
-                             message=f"Currency {inv.currency} is unexpected for vendor country "
-                                     f"{inv.country} (allowed: {', '.join(allowed)}).")]
+            return [
+                RuleFlag(
+                    rule_id="currency_not_allowed",
+                    severity="warning",
+                    message=f"Currency {inv.currency} is unexpected for vendor country "
+                    f"{inv.country} (allowed: {', '.join(allowed)}).",
+                )
+            ]
     return []
 
 
@@ -107,42 +152,69 @@ def _vat_id_invalid(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
         pattern = policy.vat_formats[inv.country.upper()]
         candidate = (inv.vat_id or "").replace(" ", "").upper()
         if not candidate or not re.match(pattern, candidate):
-            return [RuleFlag(rule_id="vat_id_invalid", severity="warning",
-                             message=f"VAT id '{inv.vat_id or '—'}' is missing or invalid for "
-                                     f"country {inv.country}.")]
+            return [
+                RuleFlag(
+                    rule_id="vat_id_invalid",
+                    severity="warning",
+                    message=f"VAT id '{inv.vat_id or '—'}' is missing or invalid for "
+                    f"country {inv.country}.",
+                )
+            ]
     return []
 
 
 def _cross_border(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     if inv.country and inv.country.upper() != policy.home_country.upper():
-        return [RuleFlag(rule_id="cross_border", severity="info",
-                         message=f"Cross-border invoice (vendor in {inv.country}, "
-                                 f"entity in {policy.home_country}).")]
+        return [
+            RuleFlag(
+                rule_id="cross_border",
+                severity="info",
+                message=f"Cross-border invoice (vendor in {inv.country}, "
+                f"entity in {policy.home_country}).",
+            )
+        ]
     return []
 
 
 def _future_invoice_date(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
-    if inv.invoice_date and inv.invoice_date > ctx["today"] + timedelta(days=policy.max_future_days):
-        return [RuleFlag(rule_id="future_invoice_date", severity="warning",
-                         message=f"Invoice date {inv.invoice_date} is more than "
-                                 f"{policy.max_future_days} days in the future.")]
+    if inv.invoice_date and inv.invoice_date > ctx["today"] + timedelta(
+        days=policy.max_future_days
+    ):
+        return [
+            RuleFlag(
+                rule_id="future_invoice_date",
+                severity="warning",
+                message=f"Invoice date {inv.invoice_date} is more than "
+                f"{policy.max_future_days} days in the future.",
+            )
+        ]
     return []
 
 
 def _stale_invoice_date(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     cutoff = ctx["today"] - timedelta(days=365 * policy.max_age_years)
     if inv.invoice_date and inv.invoice_date < cutoff:
-        return [RuleFlag(rule_id="stale_invoice_date", severity="info",
-                         message=f"Invoice date {inv.invoice_date} is older than "
-                                 f"{policy.max_age_years} years.")]
+        return [
+            RuleFlag(
+                rule_id="stale_invoice_date",
+                severity="info",
+                message=f"Invoice date {inv.invoice_date} is older than "
+                f"{policy.max_age_years} years.",
+            )
+        ]
     return []
 
 
 def _low_confidence(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
     if inv.overall_confidence < policy.low_confidence_threshold:
-        return [RuleFlag(rule_id="low_extraction_confidence", severity="warning",
-                         message=f"Extraction confidence {inv.overall_confidence:.0%} is below the "
-                                 f"{policy.low_confidence_threshold:.0%} threshold.")]
+        return [
+            RuleFlag(
+                rule_id="low_extraction_confidence",
+                severity="warning",
+                message=f"Extraction confidence {inv.overall_confidence:.0%} is below the "
+                f"{policy.low_confidence_threshold:.0%} threshold.",
+            )
+        ]
     return []
 
 
@@ -187,13 +259,20 @@ def evaluate(
     reasons = [f.message for f in flags]
 
     tier_role = policy.role_for_amount(invoice.amount)
-    force_human = policy.require_human_on_all if require_human_on_all is None else require_human_on_all
+    force_human = (
+        policy.require_human_on_all if require_human_on_all is None else require_human_on_all
+    )
 
     def _decide(decision: str, role: Optional[str], hil: str) -> PolicyDecision:
         return PolicyDecision(
-            decision=decision, required_role=role, human_in_loop=hil,
-            amount_tier_role=tier_role, flags=flags, rules_applied=rules_applied,
-            rules_triggered=rules_triggered, reasons=reasons,
+            decision=decision,
+            required_role=role,
+            human_in_loop=hil,
+            amount_tier_role=tier_role,
+            flags=flags,
+            rules_applied=rules_applied,
+            rules_triggered=rules_triggered,
+            reasons=reasons,
         )
 
     # 1. Hard reject — sanctioned / high-risk country.
@@ -206,9 +285,11 @@ def evaluate(
 
     council = (
         (policy.council.cross_border and "cross_border" in triggered)
-        or (policy.is_new_vendor(invoice.vendor_name)
+        or (
+            policy.is_new_vendor(invoice.vendor_name)
             and invoice.amount is not None
-            and invoice.amount > policy.council.new_vendor_over)
+            and invoice.amount > policy.council.new_vendor_over
+        )
         or (invoice.overall_confidence < policy.council.low_confidence_below)
     )
 

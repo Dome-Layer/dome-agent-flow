@@ -12,8 +12,9 @@ if settings.sentry_dsn:
     try:
         import sentry_sdk
 
-        sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment,
-                        traces_sample_rate=0.0)
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn, environment=settings.environment, traces_sample_rate=0.0
+        )
     except Exception as e:  # pragma: no cover
         logger.warning("sentry_init_failed", error=str(e))
 

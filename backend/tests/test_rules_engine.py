@@ -24,11 +24,11 @@ def _inv(**overrides) -> Invoice:
     """A clean, auto-approvable baseline: small, domestic, known vendor."""
     base = dict(
         invoice_number="INV-1001",
-        vendor_name="Initech Srl",          # on the allowlist
+        vendor_name="Initech Srl",  # on the allowlist
         amount=500.0,
         currency="EUR",
         category="office_supplies",
-        country="IT",                        # == home_country
+        country="IT",  # == home_country
         vat_id="IT12345678901",
         po_number="PO-1",
         invoice_date=date(2026, 6, 1),
@@ -70,8 +70,9 @@ def test_high_risk_country_rejected(policy):
 
 def test_cross_border_routes_to_council(policy):
     # Acme GmbH is allowlisted; DE vendor with valid DE VAT — only cross_border fires.
-    d = evaluate(_inv(vendor_name="Acme GmbH", country="DE", vat_id="DE123456789"),
-                 policy, today=TODAY)
+    d = evaluate(
+        _inv(vendor_name="Acme GmbH", country="DE", vat_id="DE123456789"), policy, today=TODAY
+    )
     assert d.decision == "route_to_council"
     assert "cross_border" in d.rules_triggered
 
@@ -84,8 +85,11 @@ def test_new_vendor_blocks_auto_and_requires_human(policy):
 
 
 def test_new_vendor_large_routes_to_council(policy):
-    d = evaluate(_inv(vendor_name="Brand New Vendor Srl", amount=20000.0,
-                      category="professional_services"), policy, today=TODAY)
+    d = evaluate(
+        _inv(vendor_name="Brand New Vendor Srl", amount=20000.0, category="professional_services"),
+        policy,
+        today=TODAY,
+    )
     assert d.decision == "route_to_council"
 
 

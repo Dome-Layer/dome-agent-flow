@@ -62,7 +62,15 @@ def _parse_date(value: str) -> Optional[date]:
     if not value:
         return None
     value = str(value).strip()
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%d.%m.%Y", "%d %B %Y", "%B %d, %Y"):
+    for fmt in (
+        "%Y-%m-%d",
+        "%d/%m/%Y",
+        "%m/%d/%Y",
+        "%d-%m-%Y",
+        "%d.%m.%Y",
+        "%d %B %Y",
+        "%B %d, %Y",
+    ):
         try:
             return datetime.strptime(value, fmt).date()
         except ValueError:
@@ -120,8 +128,11 @@ def invoice_from_extraction(result: dict[str, Any], *, category: Optional[str] =
     # Choose the invoice amount.
     if currency_candidates:
         totals = [(n, a) for n, a in currency_candidates if _matches(n, _AMOUNT_HINTS)]
-        inv.amount = max(totals, key=lambda t: t[1])[1] if totals \
+        inv.amount = (
+            max(totals, key=lambda t: t[1])[1]
+            if totals
             else max(currency_candidates, key=lambda t: t[1])[1]
+        )
 
     # Fall back to reference_keys for an invoice / PO number.
     if inv.invoice_number is None:

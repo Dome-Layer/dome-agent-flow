@@ -22,15 +22,15 @@ class Invoice(BaseModel):
 
     invoice_number: Optional[str] = None
     vendor_name: Optional[str] = None
-    amount: Optional[float] = None        # invoice total, in `currency`
-    currency: Optional[str] = None        # ISO 4217, e.g. "EUR"
-    category: Optional[str] = None        # purchase category, e.g. "professional_services"
-    country: Optional[str] = None         # vendor country, ISO 3166-1 alpha-2
-    vat_id: Optional[str] = None          # vendor VAT / tax id
-    po_number: Optional[str] = None       # purchase-order reference, if any
+    amount: Optional[float] = None  # invoice total, in `currency`
+    currency: Optional[str] = None  # ISO 4217, e.g. "EUR"
+    category: Optional[str] = None  # purchase category, e.g. "professional_services"
+    country: Optional[str] = None  # vendor country, ISO 3166-1 alpha-2
+    vat_id: Optional[str] = None  # vendor VAT / tax id
+    po_number: Optional[str] = None  # purchase-order reference, if any
     invoice_date: Optional[date] = None
     due_date: Optional[date] = None
-    overall_confidence: float = 1.0       # P3 extraction confidence (0..1)
+    overall_confidence: float = 1.0  # P3 extraction confidence (0..1)
 
     def dedupe_key(self) -> str:
         """Stable key for duplicate-invoice detection: vendor + number + amount."""
@@ -42,17 +42,17 @@ class Invoice(BaseModel):
 
 class RuleFlag(BaseModel):
     rule_id: str
-    severity: str            # "info" | "warning" | "error"
+    severity: str  # "info" | "warning" | "error"
     message: str
 
 
 class PolicyDecision(BaseModel):
     """The deterministic output of the rules engine for one invoice."""
 
-    decision: str                          # auto_approve | route_to_council | require_human | reject
-    required_role: Optional[str] = None    # manager | director | cfo (when a human is needed)
-    human_in_loop: str                     # not_required | required
-    amount_tier_role: str                  # raw amount-tier role (auto|manager|director|cfo)
+    decision: str  # auto_approve | route_to_council | require_human | reject
+    required_role: Optional[str] = None  # manager | director | cfo (when a human is needed)
+    human_in_loop: str  # not_required | required
+    amount_tier_role: str  # raw amount-tier role (auto|manager|director|cfo)
     flags: list[RuleFlag] = []
     rules_applied: list[str] = []
     rules_triggered: list[str] = []
