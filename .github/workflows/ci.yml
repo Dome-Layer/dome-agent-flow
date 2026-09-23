@@ -72,6 +72,9 @@ jobs:
       - run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
+      - name: Security audit (npm audit)
+        # Gate on production deps only — dev tool advisories don't ship to users.
+        run: npm audit --omit=dev --audit-level=high
 
   docker-build:
     name: docker-build
