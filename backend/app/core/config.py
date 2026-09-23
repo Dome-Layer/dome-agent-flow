@@ -63,7 +63,7 @@ class Settings(BaseSettings):
     def validate_dev_bypass_auth(self) -> "Settings":
         # DEV_BYPASS_AUTH authenticates any anonymous request as a placeholder user
         # that also passes require_user, opening every /runs endpoint including the
-        # human approval decision. Nothing else enforced "development only" — a
+        # human approval decision. Nothing else enforced "development only": a
         # true value reaching staging or production would defeat the governance
         # gate the showcase is built on.
         if self.dev_bypass_auth and self.environment != "development":
