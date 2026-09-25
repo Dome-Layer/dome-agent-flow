@@ -69,14 +69,19 @@ def _missing_amount(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
 
 
 def _high_risk_country(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
-    if inv.country and inv.country.upper() in {c.upper() for c in policy.high_risk_countries}:
-        return [
-            RuleFlag(
-                rule_id="high_risk_country",
-                severity="error",
-                message=f"Vendor country {inv.country} is on the high-risk / sanctioned list.",
-            )
-        ]
+    # Screen the stated country as well as the resolved one, so a VAT id from
+    # another country cannot hide a sanctioned country written on the invoice.
+    high_risk = {c.upper() for c in policy.high_risk_countries}
+    for code in (inv.country, inv.stated_country):
+        if code and code.upper() in high_risk:
+            source = "" if code == inv.country else f" (stated; VAT id points to {inv.country})"
+            return [
+                RuleFlag(
+                    rule_id="high_risk_country",
+                    severity="error",
+                    message=f"Vendor country {code}{source} is on the high-risk / sanctioned list.",
+                )
+            ]
     return []
 
 

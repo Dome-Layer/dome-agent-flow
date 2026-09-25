@@ -8,6 +8,7 @@ and pure, so it is unit-tested without any I/O.
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime
 from typing import Any, Optional
 
@@ -25,6 +26,102 @@ _INVOICE_DATE_HINTS = ("invoice date", "issue date", "date of issue", "document 
 _DUE_DATE_HINTS = ("due date", "payment due", "payment date", "due")
 
 _VAT_COUNTRY_RE = re.compile(r"^([A-Z]{2})")
+
+# VAT-number prefixes that identify a country. EU prefixes are ISO codes except
+# Greece (EL) and Northern Ireland (XI); GB, CH and NO use their own schemes.
+# A prefix outside this set (e.g. the "IV" of "IVA 123...") says nothing.
+_VAT_PREFIX_COUNTRY: dict[str, str] = {
+    **{
+        code: code
+        for code in (
+            "AT BE BG CY CZ DE DK EE ES FI FR HR HU IE IT LT LU LV MT NL PL PT RO SE SI SK GB CH NO"
+        ).split()
+    },
+    "EL": "GR",
+    "XI": "GB",
+}
+
+# Two-letter values that are common on invoices but are not ISO 3166-1 codes.
+_COUNTRY_CODE_ALIASES = {"UK": "GB", "EL": "GR"}
+
+# Full country names (English, Italian and a few native forms) for the countries
+# the default policy names plus the EU and nearby trading partners. Keys are folded
+# by `_fold_country` (lowercase, no accents, punctuation collapsed).
+_COUNTRY_NAMES_BY_CODE: dict[str, tuple[str, ...]] = {
+    # policy.yaml home / allowed-currency countries
+    "IT": ("italy", "italia", "italian republic", "repubblica italiana"),
+    "DE": ("germany", "germania", "deutschland", "federal republic of germany"),
+    "FR": ("france", "francia", "french republic"),
+    "ES": ("spain", "spagna", "espana", "kingdom of spain"),
+    "GB": (
+        "united kingdom",
+        "united kingdom of great britain and northern ireland",
+        "great britain",
+        "britain",
+        "england",
+        "scotland",
+        "wales",
+        "northern ireland",
+        "uk",
+        "regno unito",
+        "gran bretagna",
+        "inghilterra",
+    ),
+    "US": (
+        "united states",
+        "united states of america",
+        "usa",
+        "us",
+        "america",
+        "stati uniti",
+        "stati uniti d america",
+    ),
+    "CH": ("switzerland", "svizzera", "schweiz", "suisse", "swiss confederation"),
+    # policy.yaml high-risk / sanctioned countries
+    "IR": ("iran", "islamic republic of iran", "repubblica islamica dell iran"),
+    "KP": (
+        "north korea",
+        "democratic people s republic of korea",
+        "dprk",
+        "corea del nord",
+        "repubblica popolare democratica di corea",
+    ),
+    "SY": ("syria", "syrian arab republic", "siria", "repubblica araba siriana"),
+    "RU": ("russia", "russian federation", "federazione russa"),
+    "BY": ("belarus", "republic of belarus", "bielorussia", "byelorussia"),
+    # rest of the EU, EEA and nearby
+    "AT": ("austria", "osterreich"),
+    "BE": ("belgium", "belgio", "belgique", "belgie"),
+    "BG": ("bulgaria",),
+    "HR": ("croatia", "croazia", "hrvatska"),
+    "CY": ("cyprus", "cipro"),
+    "CZ": ("czech republic", "czechia", "repubblica ceca", "cechia"),
+    "DK": ("denmark", "danimarca", "danmark"),
+    "EE": ("estonia",),
+    "FI": ("finland", "finlandia", "suomi"),
+    "GR": ("greece", "grecia", "hellas"),
+    "HU": ("hungary", "ungheria", "magyarorszag"),
+    "IE": ("ireland", "irlanda", "republic of ireland", "eire"),
+    "LV": ("latvia", "lettonia"),
+    "LT": ("lithuania", "lituania"),
+    "LU": ("luxembourg", "lussemburgo"),
+    "MT": ("malta",),
+    "NL": ("netherlands", "paesi bassi", "olanda", "holland", "nederland"),
+    "PL": ("poland", "polonia", "polska"),
+    "PT": ("portugal", "portogallo"),
+    "RO": ("romania",),
+    "SK": ("slovakia", "slovacchia", "slovak republic"),
+    "SI": ("slovenia",),
+    "SE": ("sweden", "svezia", "sverige"),
+    "NO": ("norway", "norvegia", "norge"),
+    "SM": ("san marino",),
+    "VA": ("vatican", "vatican city", "holy see", "citta del vaticano", "vaticano"),
+    "LI": ("liechtenstein",),
+    "MC": ("monaco",),
+}
+_COUNTRY_NAMES: dict[str, str] = {
+    name: code for code, names in _COUNTRY_NAMES_BY_CODE.items() for name in names
+}
 
 
 def _norm(name: str) -> str:
@@ -78,6 +175,37 @@ def _parse_date(value: str) -> Optional[date]:
     return None
 
 
+def _fold_country(value: str) -> str:
+    """Lowercase, strip accents, drop dots ("U.K." -> "uk") and collapse any other
+    punctuation to single spaces, so "España" and "Stati Uniti d'America" match."""
+    ascii_only = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode()
+    s = ascii_only.lower().replace(".", "")
+    s = re.sub(r"[^a-z]+", " ", s).strip()
+    return s.removeprefix("the ")
+
+
+def _parse_country(value: Any) -> Optional[str]:
+    """ISO 3166-1 alpha-2 code for an extracted country value, or None.
+
+    Accepts a two-letter code as-is (plus the UK/EL aliases) or a known full name.
+    Anything else returns None rather than guessing: truncating "Germany" to "GE"
+    (Georgia) or "Belarus" to "BE" (Belgium) is worse than no country, because an
+    unset country lets the VAT-prefix fallback run."""
+    raw = str(value).strip()
+    if re.fullmatch(r"[A-Za-z]{2}", raw):
+        code = raw.upper()
+        return _COUNTRY_CODE_ALIASES.get(code, code)
+    return _COUNTRY_NAMES.get(_fold_country(raw))
+
+
+def _country_from_vat(vat_id: Optional[str]) -> Optional[str]:
+    """Country implied by a VAT id prefix, or None if the prefix is not a known one."""
+    if not vat_id:
+        return None
+    m = _VAT_COUNTRY_RE.match(re.sub(r"[\s.\-]", "", vat_id).upper())
+    return _VAT_PREFIX_COUNTRY.get(m.group(1)) if m else None
+
+
 def invoice_from_extraction(result: dict[str, Any], *, category: Optional[str] = None) -> Invoice:
     """Map a P3 result (full DocumentIntelligenceResult or its `extraction` block)
     onto an `Invoice`. `category` may be supplied by the caller (e.g. n8n) when the
@@ -113,8 +241,8 @@ def invoice_from_extraction(result: dict[str, Any], *, category: Optional[str] =
             inv.po_number = str(value)
         if category is None and inv.category is None and _matches(name, _CATEGORY_HINTS):
             inv.category = _norm(str(value)).replace(" ", "_")
-        if inv.country is None and _matches(name, _COUNTRY_HINTS):
-            inv.country = str(value).strip().upper()[:2]
+        if inv.stated_country is None and _matches(name, _COUNTRY_HINTS):
+            inv.stated_country = _parse_country(value)
         if inv.invoice_date is None and _matches(name, _INVOICE_DATE_HINTS):
             inv.invoice_date = _parse_date(value)
         if inv.due_date is None and _matches(name, _DUE_DATE_HINTS):
@@ -146,10 +274,10 @@ def invoice_from_extraction(result: dict[str, Any], *, category: Optional[str] =
                 inv.po_number = str(v)
                 break
 
-    # Infer vendor country from the VAT id prefix if not stated explicitly.
-    if inv.country is None and inv.vat_id:
-        m = _VAT_COUNTRY_RE.match(inv.vat_id.replace(" ", "").upper())
-        if m:
-            inv.country = m.group(1)
+    # Resolve the vendor country. A recognised VAT prefix wins over the stated
+    # country: it is a structured identifier, while a "country" field may belong to
+    # the buyer's address. The stated value stays on `stated_country` so the
+    # high-risk screen still sees it when the two disagree.
+    inv.country = _country_from_vat(inv.vat_id) or inv.stated_country
 
     return inv
