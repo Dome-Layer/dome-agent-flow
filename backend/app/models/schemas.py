@@ -26,6 +26,9 @@ class Invoice(BaseModel):
     currency: Optional[str] = None  # ISO 4217, e.g. "EUR"
     category: Optional[str] = None  # purchase category, e.g. "professional_services"
     country: Optional[str] = None  # vendor country, ISO 3166-1 alpha-2
+    # Country as written on the document, normalised to alpha-2. Differs from
+    # `country` when the VAT id prefix points elsewhere; screened for high risk too.
+    stated_country: Optional[str] = None
     vat_id: Optional[str] = None  # vendor VAT / tax id
     po_number: Optional[str] = None  # purchase-order reference, if any
     invoice_date: Optional[date] = None

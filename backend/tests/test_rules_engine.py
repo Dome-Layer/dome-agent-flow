@@ -68,6 +68,18 @@ def test_high_risk_country_rejected(policy):
     assert "high_risk_country" in d.rules_triggered
 
 
+def test_stated_high_risk_country_rejected_even_when_vat_points_elsewhere(policy):
+    # "Belarus" on the invoice with a German VAT id: the VAT prefix resolves the
+    # country to DE, but the sanctioned stated country must still hard-reject.
+    d = evaluate(
+        _inv(vendor_name="Acme GmbH", country="DE", stated_country="BY", vat_id="DE123456789"),
+        policy,
+        today=TODAY,
+    )
+    assert d.decision == "reject"
+    assert "high_risk_country" in d.rules_triggered
+
+
 def test_cross_border_routes_to_council(policy):
     # Acme GmbH is allowlisted; DE vendor with valid DE VAT — only cross_border fires.
     d = evaluate(
