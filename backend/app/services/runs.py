@@ -96,14 +96,17 @@ def get_run(workflow_run_id: str) -> Optional[RunRecord]:
     return _from_row(rows[0]) if rows else None
 
 
-def list_runs(status: Optional[str], user_id: Optional[str], is_service: bool) -> list[RunRecord]:
+def list_runs(status: Optional[str], user_id: Optional[str], see_all: bool) -> list[RunRecord]:
     client = get_service_client()
     if client is None:
         return []
     q = client.table(_TABLE).select("*")
     if status:
         q = q.eq("status", status)
-    if not is_service and user_id:
+    if not see_all:
+        # Everyone else sees only runs they own (none without a user id).
+        if not user_id:
+            return []
         q = q.eq("user_id", user_id)
     res = q.order("created_at", desc=True).limit(200).execute()
     return [_from_row(r) for r in (res.data or [])]

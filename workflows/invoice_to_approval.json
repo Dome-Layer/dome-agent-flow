@@ -106,6 +106,18 @@
     },
     {
       "parameters": {
+        "jsCode": "// \"Create run\" answers with JSON only, so the file uploaded through the form\n// is no longer on the item. Put it back so \"Extract invoice (P3)\" can send it.\nconst run = $('Create run').first().json;\nconst upload = $('On invoice upload').first();\nreturn [{ json: run, binary: upload.binary, pairedItem: { item: 0 } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ],
+      "name": "Attach invoice file"
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "={{ $('Config').item.json.shimBase }}/api/v1/runs/{{ $('Create run').item.json.workflow_run_id }}/extract",
         "authentication": "genericCredentialType",
@@ -130,7 +142,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        600,
+        840,
         300
       ],
       "name": "Extract invoice (P3)",
@@ -152,7 +164,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        840,
+        1080,
         300
       ],
       "name": "Evaluate rules",
@@ -187,7 +199,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1080,
+        1320,
         300
       ],
       "name": "Route to council?"
@@ -203,7 +215,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1320,
+        1560,
         200
       ],
       "name": "Council brief (P2)",
@@ -231,7 +243,7 @@
       "main": [
         [
           {
-            "node": "Extract invoice (P3)",
+            "node": "Attach invoice file",
             "type": "main",
             "index": 0
           }
@@ -277,6 +289,17 @@
         [
           {
             "node": "Create run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach invoice file": {
+      "main": [
+        [
+          {
+            "node": "Extract invoice (P3)",
             "type": "main",
             "index": 0
           }
