@@ -46,14 +46,28 @@ canvas. To point it at a different shim, edit that one node.
 
 ## Import the workflow
 
-Import [`../workflows/invoice_to_approval.json`](../workflows/invoice_to_approval.json) into
-the n8n editor. After import, confirm in the UI:
-- each **HTTP Request** node uses the *Agent Flow Service Key* credential (the committed id is a
-  placeholder, `REPLACE_IN_N8N`, so each node needs the credential re-selected once);
-- the **Config** node's `shimBase` is the shim you mean to hit;
-- the **Extract** node forwards the form's uploaded file (binary property `Invoice_file`, derived
-  from the form field label "Invoice file") as the multipart `file` field the shim expects;
-- the workflow is **activated/published**; the form trigger's production URL only answers while it is.
+Easiest path, first-time setup included (verified 2026-09-28):
+
+1. Create the owner account on first load.
+2. Create the *Agent Flow Service Key* credential **before** importing. n8n then links it to all
+   four HTTP Request nodes by name on import; the committed credential id is only a placeholder
+   (`REPLACE_IN_N8N`). If it is created afterwards, select it in each HTTP node's **Header Auth**
+   field instead.
+3. Import [`../workflows/invoice_to_approval.json`](../workflows/invoice_to_approval.json), from
+   file or with **Import from URL** using the raw GitHub URL of the `staging` branch.
+4. **Publish** the workflow. Saving is not enough; the form only answers once it is published.
+5. **Take the form URL from the editor, never from the JSON.** n8n assigns the form trigger a new
+   id on import, so the committed `webhookId` (`agent-flow-invoice-form`) is not the live address.
+   Open *On invoice upload*, switch to **Production URL** and copy it. Re-importing produces a new
+   URL again.
+
+What the workflow does between the form and the shim:
+- **Config** holds `shimBase` (the shim to hit). Edit this one node to point elsewhere.
+- **Attach invoice file** is there because *Create run* replies with JSON only, which drops the
+  uploaded file from the item. This Code node puts the form's `Invoice_file` binary (named from the
+  field label "Invoice file") back, so *Extract invoice (P3)* can send it as the multipart `file`
+  field the shim expects. Without it, Extract fails with "expects the node's input data to contain
+  a binary file 'Invoice_file'" (the June workflow had this bug; found 2026-09-28).
 
 ## Triggers
 

@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     # Service-to-service auth (n8n → shim, shim → P3/P2)
     agent_flow_service_key: str = ""
 
+    # Who may run the pipeline as a person and approve or reject invoices:
+    # comma-separated Supabase user ids. Empty means nobody (fail closed).
+    # Agent Flow is a private demo (DOME_DECISIONS 2026-09-28): every run makes
+    # paid model calls, and anyone can sign up to DOME, so a signed-in user is
+    # not enough on its own.
+    approver_user_ids: str = ""
+
     # Upstream tools the shim proxies
     doci_base_url: str = ""
     llc_base_url: str = ""
@@ -38,6 +45,10 @@ class Settings(BaseSettings):
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
+    @property
+    def approver_id_set(self) -> frozenset[str]:
+        return frozenset(u.strip() for u in self.approver_user_ids.split(",") if u.strip())
+
     @model_validator(mode="after")
     def validate_required_secrets(self) -> "Settings":
         if self.environment in ("staging", "production"):
@@ -61,9 +72,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_dev_bypass_auth(self) -> "Settings":
-        # DEV_BYPASS_AUTH authenticates any anonymous request as a placeholder user
-        # that also passes require_user, opening every /runs endpoint including the
-        # human approval decision. Nothing else enforced "development only": a
+        # DEV_BYPASS_AUTH authenticates any anonymous request as a placeholder user,
+        # opening the /runs endpoints to anyone (and the human approval decision too,
+        # if that placeholder id is ever put on APPROVER_USER_IDS). Nothing else enforced "development only": a
         # true value reaching staging or production would defeat the governance
         # gate the showcase is built on.
         if self.dev_bypass_auth and self.environment != "development":

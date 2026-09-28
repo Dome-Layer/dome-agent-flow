@@ -14,7 +14,13 @@ from typing import Optional
 from dome_core.governance import hash_input_text
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
-from app.api.deps import Principal, require_principal, require_user
+from app.api.deps import (
+    Principal,
+    can_see_all_runs,
+    require_approver,
+    require_operator,
+    require_principal,
+)
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.models.runs import CouncilRequest, CreateRunRequest, DecisionRequest, RunRecord
@@ -102,7 +108,7 @@ def _emit_terminal(
 
 @router.post("")
 async def create_run(
-    body: CreateRunRequest, principal: Principal = Depends(require_principal)
+    body: CreateRunRequest, principal: Principal = Depends(require_operator)
 ) -> RunRecord:
     run = RunRecord(
         workflow_run_id=_gen_run_id(),
@@ -128,7 +134,7 @@ async def extract(
     workflow_run_id: str,
     file: UploadFile = File(...),
     category: Optional[str] = Form(default=None),
-    principal: Principal = Depends(require_principal),
+    principal: Principal = Depends(require_operator),
 ) -> RunRecord:
     run = _load(workflow_run_id)
     data = await file.read()
@@ -145,7 +151,7 @@ async def extract(
 
 @router.post("/{workflow_run_id}/rules")
 async def rules(
-    workflow_run_id: str, principal: Principal = Depends(require_principal)
+    workflow_run_id: str, principal: Principal = Depends(require_operator)
 ) -> RunRecord:
     run = _load(workflow_run_id)
     if run.invoice is None:
@@ -196,7 +202,7 @@ async def rules(
 async def council(
     workflow_run_id: str,
     body: Optional[CouncilRequest] = None,
-    principal: Principal = Depends(require_principal),
+    principal: Principal = Depends(require_operator),
 ) -> RunRecord:
     run = _load(workflow_run_id)
     if run.invoice is None:
@@ -220,7 +226,7 @@ async def council(
 async def decision(
     workflow_run_id: str,
     body: DecisionRequest,
-    principal: Principal = Depends(require_user),
+    principal: Principal = Depends(require_approver),
 ) -> RunRecord:
     run = _load(workflow_run_id)
     if run.status in ("approved", "rejected"):
@@ -245,7 +251,7 @@ async def list_runs(
     status: Optional[str] = None, principal: Principal = Depends(require_principal)
 ) -> dict:
     items = runs_svc.list_runs(
-        status=status, user_id=principal.user_id, is_service=principal.is_service
+        status=status, user_id=principal.user_id, see_all=can_see_all_runs(principal)
     )
     return {"runs": items, "total": len(items)}
 
@@ -254,4 +260,11 @@ async def list_runs(
 async def get_run(
     workflow_run_id: str, principal: Principal = Depends(require_principal)
 ) -> RunRecord:
-    return _load(workflow_run_id)
+    run = _load(workflow_run_id)
+    # A non-approver may only open their own runs; 404 rather than 403 so run ids
+    # cannot be probed.
+    if not can_see_all_runs(principal) and run.user_id != principal.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Run {workflow_run_id} not found"
+        )
+    return run

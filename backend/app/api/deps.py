@@ -1,7 +1,10 @@
 """Dual auth: a service key (n8n → shim) OR a Supabase user JWT (approval page → shim).
 
-- `require_principal` — accepts either; used by the n8n-facing run endpoints.
-- `require_user`     — demands a signed-in human; used by the approval decision.
+- `require_principal`: accepts either; used by the read endpoints, which then scope
+  what a non-approver may see.
+- `require_operator`: the service key or an approver; used by the pipeline steps,
+  since each one makes paid model calls.
+- `require_approver`: a signed-in human on `APPROVER_USER_IDS`; used by the decision.
 """
 
 from __future__ import annotations
@@ -61,10 +64,35 @@ async def require_principal(
         )
 
 
-async def require_user(principal: Principal = Depends(require_principal)) -> Principal:
-    """For endpoints that must be owned by a named human (the approval decision)."""
+def is_approver(principal: Principal) -> bool:
+    return (
+        not principal.is_service
+        and principal.user_id is not None
+        and principal.user_id in settings.approver_id_set
+    )
+
+
+def can_see_all_runs(principal: Principal) -> bool:
+    return principal.is_service or is_approver(principal)
+
+
+async def require_operator(principal: Principal = Depends(require_principal)) -> Principal:
+    """The service key (n8n) or an approver: the only callers allowed to spend on runs."""
+    if principal.is_service or is_approver(principal):
+        return principal
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN, detail="Agent Flow is limited to approvers"
+    )
+
+
+async def require_approver(principal: Principal = Depends(require_principal)) -> Principal:
+    """A named human on the allowlist; owns the approval decision."""
     if principal.is_service or not principal.user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="A signed-in user is required"
+        )
+    if not is_approver(principal):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Only approvers can decide runs"
         )
     return principal
