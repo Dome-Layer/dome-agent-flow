@@ -62,7 +62,7 @@ idna==3.18
     #   yarl
 limits==5.8.0
     # via slowapi
-multidict==6.7.1
+multidict==6.9.1
     # via yarl
 packaging==26.2
     # via
