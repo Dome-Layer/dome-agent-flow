@@ -1,7 +1,7 @@
 import type { Decision } from "@/types/runs";
 
 export function formatMoney(amount: number | null, currency: string | null): string {
-  if (amount == null) return "—";
+  if (amount == null) return "N/A";
   try {
     return new Intl.NumberFormat("en-GB", {
       style: "currency",
