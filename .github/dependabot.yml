@@ -1,0 +1,40 @@
+# Dependency policy: dome-docs compliance/DEPENDENCY_POLICY.md (2026-09-14), as in the other
+# repos: pip version PRs off (they strip extras from the uv-compiled lock, DA-029; security
+# alerts unaffected), npm minor and patch grouped monthly, no majors, dome-ui pinned by tag,
+# Actions monthly. One difference: every PR targets `staging`, because Agent Flow runs as a
+# private demo from staging and `main` is held back (DOME_DECISIONS 2026-09-28). This file
+# itself is read from main only.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    target-branch: "staging"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    groups:
+      python-minor-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "mypy"
+        versions: [">= 2.0"]
+      - dependency-name: "pytest-asyncio"
+        versions: [">= 1.0"]
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    target-branch: "staging"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@dome-layer/dome-ui"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "staging"
+    schedule:
+      interval: "monthly"
