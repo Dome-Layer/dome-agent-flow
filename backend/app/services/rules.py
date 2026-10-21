@@ -38,7 +38,7 @@ def _missing_invoice_number(inv: Invoice, policy: Policy, ctx: dict) -> list[Rul
             RuleFlag(
                 rule_id="missing_invoice_number",
                 severity="error",
-                message="No invoice number — cannot de-duplicate or reconcile.",
+                message="No invoice number: cannot de-duplicate or reconcile.",
             )
         ]
     return []
@@ -103,7 +103,7 @@ def _new_vendor(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
             RuleFlag(
                 rule_id="new_vendor",
                 severity="warning",
-                message="Vendor is not on the allowlist — KYC / first-payment review required.",
+                message="Vendor is not on the allowlist: KYC / first-payment review required.",
             )
         ]
     return []
@@ -161,7 +161,7 @@ def _vat_id_invalid(inv: Invoice, policy: Policy, ctx: dict) -> list[RuleFlag]:
                 RuleFlag(
                     rule_id="vat_id_invalid",
                     severity="warning",
-                    message=f"VAT id '{inv.vat_id or '—'}' is missing or invalid for "
+                    message=f"VAT id '{inv.vat_id or 'N/A'}' is missing or invalid for "
                     f"country {inv.country}.",
                 )
             ]
@@ -280,11 +280,11 @@ def evaluate(
             reasons=reasons,
         )
 
-    # 1. Hard reject — sanctioned / high-risk country.
+    # 1. Hard reject: sanctioned / high-risk country.
     if "high_risk_country" in triggered:
         return _decide("reject", None, "required")
 
-    # 2. Four-eyes override — nothing auto-approves.
+    # 2. Four-eyes override: nothing auto-approves.
     if force_human:
         return _decide("require_human", _escalate(tier_role, "manager"), "required")
 
@@ -301,7 +301,7 @@ def evaluate(
     # Any warning/error, or an amount above the auto tier, blocks auto-approval.
     blockers = any(f.severity in ("warning", "error") for f in flags) or tier_role != "auto"
 
-    # 3. Auto-approve — clean, low-value, no council trigger.
+    # 3. Auto-approve: clean, low-value, no council trigger.
     if not blockers and not council:
         return _decide("auto_approve", None, "not_required")
 

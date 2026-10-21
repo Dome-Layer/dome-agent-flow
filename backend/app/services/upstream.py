@@ -1,7 +1,7 @@
 """Proxies to the upstream tools P3 (Document Intelligence) and P2 (LLM Council).
 
 Both calls present `X-Service-Key` (service-to-service auth) and `X-Workflow-Run-Id`
-so P3/P2 stamp their native governance events with the shared run id — giving P6 a
+so P3/P2 stamp their native governance events with the shared run id, giving P6 a
 true cross-tool timeline. n8n never calls P3/P2 directly; only this shim does.
 """
 

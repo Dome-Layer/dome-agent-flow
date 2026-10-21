@@ -36,7 +36,7 @@ categories:
   marketing:             { auto_ceiling: 1000 }
   travel:                { auto_ceiling: 500 }
   it_hardware:           { auto_ceiling: 0, require_po: true }   # PO + review always
-  capex:                 { auto_ceiling: 0, require_po: true }   # capital — always reviewed
+  capex:                 { auto_ceiling: 0, require_po: true }   # capital, always reviewed
 
 # ── Country rules ─────────────────────────────────────────────────────────────
 allowed_currencies:

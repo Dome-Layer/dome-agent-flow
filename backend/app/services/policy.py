@@ -2,7 +2,7 @@
 
 The committed `policy.yaml` is the default; a per-tenant override row from the
 Supabase `approval_policies` table can be merged on top at runtime (see
-`Policy.merged_with`). The policy is pure data — the engine in `rules.py` reads it.
+`Policy.merged_with`). The policy is pure data; the engine in `rules.py` reads it.
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ class Policy(BaseModel):
         return "cfo"
 
     def category_auto_ceiling(self, category: Optional[str]) -> float:
-        """Effective auto-approve ceiling for a category — categories only tighten
+        """Effective auto-approve ceiling for a category; categories only tighten
         the global ceiling, never raise it."""
         global_ceiling = self.global_auto_ceiling()
         if category and category in self.categories:
