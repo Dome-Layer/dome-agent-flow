@@ -1,22 +1,15 @@
-/** @type {import('next').NextConfig} */
+/**
+ * A static export (Sprint H, 2026-10-21): Cloudflare serves out/ as static assets and the Worker in
+ * worker/ adds the per-request CSP nonce and the security headers (worker/site.ts) that
+ * middleware.ts and headers() used to set, and serves /runs/<id> from one prebuilt shell. No
+ * backend proxy: the app calls the shim API cross-origin. Nothing here may need a server at
+ * request time.
+ *
+ * @type {import('next').NextConfig}
+ */
 const nextConfig = {
-  async headers() {
-    return [
-      {
-        source: "/(.*)",
-        headers: [
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          {
-            key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=()",
-          },
-          // Content-Security-Policy is set per-request in middleware.ts (nonce-based).
-        ],
-      },
-    ];
-  },
+  output: "export",
+  images: { unoptimized: true },
 };
 
 export default nextConfig;

@@ -10,7 +10,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "typecheck:worker": "tsc -p tsconfig.worker.json"
   },
   "dependencies": {
     "@dome-layer/dome-ui": "github:Dome-Layer/dome-ui#v1.2.1",
@@ -20,6 +22,7 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261012.1",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -27,6 +30,8 @@
     "eslint-config-next": "^16.3.5",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.149.0"
   }
 }
