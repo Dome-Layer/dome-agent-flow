@@ -20,11 +20,11 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Agent Flow — Dome",
+  title: "Agent Flow | DOME",
   description: "Governed invoice-to-approval workflow with a human-in-the-loop gate.",
 };
 
-// Prevents theme flash before first paint — reads the dome-theme cookie (shared
+// Prevents a theme flash before first paint: reads the dome-theme cookie (shared
 // across all *.domelayer.com subdomains) then falls back to localStorage.
 const themeScript = `
 (function() {

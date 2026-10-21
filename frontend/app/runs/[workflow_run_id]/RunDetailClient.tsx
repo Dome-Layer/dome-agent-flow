@@ -103,7 +103,7 @@ export default function RunDetailClient() {
                   <div key={label} className="flex justify-between gap-3 text-sm">
                     <dt style={{ color: "var(--color-text-secondary)" }}>{label}</dt>
                     <dd className="text-right" style={{ color: "var(--color-text-primary)" }}>
-                      {value || "—"}
+                      {value || "N/A"}
                     </dd>
                   </div>
                 ))}
@@ -129,7 +129,7 @@ export default function RunDetailClient() {
                         <span className="font-medium" style={{ color: "var(--color-text-primary)" }}>
                           {f.rule_id}
                         </span>
-                        <span style={{ color: "var(--color-text-secondary)" }}> — {f.message}</span>
+                        <span style={{ color: "var(--color-text-secondary)" }}>: {f.message}</span>
                       </span>
                     </li>
                   ))}
@@ -170,7 +170,7 @@ export default function RunDetailClient() {
               run.status !== "extracted" && (
                 <p className="text-sm mt-4" style={{ color: "var(--color-text-secondary)" }}>
                   This run is {run.status}
-                  {run.decision_note ? ` — ${run.decision_note}` : ""}.
+                  {run.decision_note ? `: ${run.decision_note}` : ""}.
                 </p>
               )
             )}
