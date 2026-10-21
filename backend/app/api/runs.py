@@ -124,7 +124,7 @@ async def create_run(
         workflow_run_id=run.workflow_run_id,
         input_hash=hash_input_text(body.filename or run.workflow_run_id),
         input_type="invoice_pdf",
-        output_summary=f"Invoice run received via {body.source}: {body.filename or '—'}",
+        output_summary=f"Invoice run received via {body.source}: {body.filename or 'N/A'}",
     )
     return run
 
