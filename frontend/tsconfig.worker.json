@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "types": [
+      "@cloudflare/workers-types"
+    ],
+    "skipLibCheck": true
+  },
+  "include": [
+    "worker/**/*.ts",
+    "lib/routeId.ts"
+  ],
+  "exclude": [
+    "worker/**/*.test.ts"
+  ]
+}

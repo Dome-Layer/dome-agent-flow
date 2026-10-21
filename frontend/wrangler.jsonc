@@ -1,0 +1,31 @@
+// Cloudflare Workers config for agent-flow.staging.domelayer.com (Sprint H, last move off Vercel,
+// 2026-10-21). Agent Flow is a private demo on staging only, so only the staging environment is
+// ever deployed: `npm run build` writes the static export to out/, then `wrangler deploy --env
+// staging`, normally from the deploy-cloudflare GitHub Action. There are no secrets: everything
+// in the build is public.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dome-agent-flow",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "out",
+    "binding": "ASSETS",
+    // /x is served from x.html, as Next's export names it; the Worker 308s /x/ to /x.
+    "html_handling": "auto-trailing-slash",
+    // Unknown paths get Next's own 404 page with a 404 status.
+    "not_found_handling": "404-page",
+    // Every page goes through the Worker (CSP nonce, headers). The hashed bundles do not: they
+    // are free and uncounted when served directly, and they need no nonce.
+    "run_worker_first": ["/*", "!/_next/static/*"]
+  },
+  // Every tool host sends noindex: it is a sign-in app (SEO audit M5, 2026-10-20).
+  "vars": { "DOME_NOINDEX": "true" },
+  "observability": { "enabled": true },
+  "env": {
+    "staging": {
+      "name": "dome-agent-flow-staging",
+      "vars": { "DOME_NOINDEX": "true" }
+    }
+  }
+}

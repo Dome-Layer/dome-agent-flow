@@ -1,0 +1,92 @@
+# Deploys the Agent Flow frontend to Cloudflare Workers (Sprint H, the last move off Vercel,
+# 2026-10-21). Agent Flow is a private demo that runs on staging only, so only a push to `staging`
+# deploys (the Worker dome-agent-flow-staging); `main` never does. The build is a static Next.js
+# export (frontend/out) served as assets; frontend/worker adds the per-request CSP nonce and the
+# security headers.
+#
+# Secrets: CLOUDFLARE_API_TOKEN (Workers-only token), CLOUDFLARE_ACCOUNT_ID.
+# Variables on the GitHub environment cloudflare-staging: NEXT_PUBLIC_AGENTFLOW_API_BASE (the shim),
+# NEXT_PUBLIC_SENTRY_ENVIRONMENT (public: they ship in the JavaScript), and SMOKE_URL, the host the
+# smoke test checks (the workers.dev address until the DNS cutover).
+
+name: deploy (Cloudflare)
+
+on:
+  push:
+    branches: [staging]
+    paths: ['frontend/**', '.github/workflows/deploy-cloudflare.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-cloudflare-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy ${{ github.ref_name }}
+    if: github.ref_name == 'staging'
+    runs-on: ubuntu-latest
+    environment:
+      name: cloudflare-staging
+      url: ${{ vars.SMOKE_URL }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          # Wrangler needs Node 22 or later.
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck:worker
+      - run: npm test
+      - name: Build the static export
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          NEXT_PUBLIC_AGENTFLOW_API_BASE: ${{ vars.NEXT_PUBLIC_AGENTFLOW_API_BASE }}
+          NEXT_PUBLIC_SENTRY_ENVIRONMENT: ${{ vars.NEXT_PUBLIC_SENTRY_ENVIRONMENT }}
+        run: |
+          if [ -z "$NEXT_PUBLIC_AGENTFLOW_API_BASE" ]; then echo "::error::NEXT_PUBLIC_AGENTFLOW_API_BASE is not set on this environment"; exit 1; fi
+          npm run build
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          message="$(git log -1 --format=%s | cut -c1-100)"
+          npx wrangler deploy --env staging --tag "${GITHUB_SHA::7}" --message "$message"
+      - name: Smoke test
+        env:
+          HOST: ${{ vars.SMOKE_URL }}
+        run: |
+          fail=0
+          check() { # path, expected status
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$HOST$1")
+            echo "$1 -> $code (want $2)"; [ "$code" = "$2" ] || fail=1
+          }
+          sleep 5
+          check / 200
+          check /runs/smoke-check 200
+          check /runs/smoke-check/ 308
+          check /nope 404
+          headers=$(curl -s -D - -o page.html "$HOST/" | tr -d '\r')
+          nonce=$(echo "$headers" | grep -i '^content-security-policy:' | grep -oE "nonce-[A-Za-z0-9+/=]+" | cut -d- -f2-)
+          if [ -z "$nonce" ]; then echo "::error::no CSP nonce on /"; fail=1; fi
+          scripts=$(grep -o '<script' page.html | wc -l)
+          nonced=$(grep -oF "nonce=\"$nonce\"" page.html | wc -l)
+          echo "scripts=$scripts nonced=$nonced"
+          if [ "$nonced" -lt "$scripts" ]; then echo "::error::a script on / has no nonce"; fail=1; fi
+          robots=$(echo "$headers" | grep -i '^x-robots-tag' || true)
+          if [ -z "$robots" ]; then echo "::error::missing noindex (every tool host sends it)"; fail=1; fi
+          check /robots.txt 200
+          asset=$(grep -oE '/_next/static/[^"]+[.]js' page.html | head -1)
+          cache=$(curl -sI "$HOST$asset" | tr -d '\r' | grep -i '^cache-control:' || true)
+          echo "$asset $cache"
+          if [[ "$cache" != *immutable* ]]; then echo "::error::$asset is not cached as immutable"; fail=1; fi
+          exit $fail

@@ -1,0 +1,6 @@
+# A DOME tool: a sign-in app, so every page here answers with noindex.
+# Crawling stays allowed so search engines can see that. The public pages are on domelayer.com.
+User-agent: *
+Allow: /
+
+Sitemap: https://domelayer.com/sitemap.xml
