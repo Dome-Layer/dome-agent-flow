@@ -81,7 +81,7 @@ def test_stated_high_risk_country_rejected_even_when_vat_points_elsewhere(policy
 
 
 def test_cross_border_routes_to_council(policy):
-    # Acme GmbH is allowlisted; DE vendor with valid DE VAT — only cross_border fires.
+    # Acme GmbH is allowlisted; DE vendor with valid DE VAT, so only cross_border fires.
     d = evaluate(
         _inv(vendor_name="Acme GmbH", country="DE", vat_id="DE123456789"), policy, today=TODAY
     )

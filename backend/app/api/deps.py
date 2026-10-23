@@ -45,7 +45,7 @@ async def require_principal(
     if settings.dev_bypass_auth:
         return Principal(user_id="00000000-0000-0000-0000-000000000000", is_service=False)
 
-    # User path (approval page) — verify the Supabase JWT locally (DA-005).
+    # User path (approval page): verify the Supabase JWT locally (DA-005).
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authorization required"
