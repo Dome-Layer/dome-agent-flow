@@ -26,7 +26,7 @@ deprecation==2.1.0
     # via
     #   postgrest
     #   storage3
-dome-core @ git+https://github.com/Dome-Layer/dome-core.git@b65bcf0548b102c69b5ae45014cb51f09ad99f56
+dome-core @ git+https://github.com/Dome-Layer/dome-core.git@313cf619be7c7ba5941945438d30208497ea08a9
     # via -r requirements.in
 fastapi==0.137.1
     # via
