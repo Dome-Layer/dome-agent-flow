@@ -1,0 +1,304 @@
+{
+  "name": "Invoice by Email: Governed Agent Flow",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "postProcessAction": "read",
+        "format": "simple",
+        "downloadAttachments": true,
+        "dataPropertyAttachmentsPrefixName": "attachment_",
+        "options": {
+          "customEmailConfig": "[\"UNSEEN\"]"
+        }
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        300
+      ],
+      "name": "On invoice email",
+      "credentials": {
+        "imap": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Agent Flow Invoice Mailbox"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// One request body per email for POST /intake/email, with only what the shim\n// needs: no subject, body or recipients. The Simple format keeps the FIRST value\n// of each header, which for Authentication-Results is the one the receiving\n// mail server added (the shim trusts only that server's authserv-id).\nconst items = $input.all();\nconst out = [];\nfor (let i = 0; i < items.length; i++) {\n  const item = items[i];\n  const meta = item.json.metadata || {};\n  const keys = Object.keys(item.binary || {})\n    .filter((k) => k.startsWith('attachment_'))\n    .sort((a, b) => Number(a.slice(11)) - Number(b.slice(11)));\n  const attachments = [];\n  for (const key of keys) {\n    const buffer = await this.helpers.getBinaryDataBuffer(i, key);\n    attachments.push({\n      filename: item.binary[key].fileName || null,\n      content_base64: buffer.toString('base64'),\n    });\n  }\n  const auth = meta['authentication-results'];\n  out.push({\n    json: {\n      intake: {\n        message_id: meta['message-id'] || null,\n        from_header: item.json.from || '',\n        date: item.json.date || null,\n        authentication_results: auth ? [auth] : [],\n        attachments,\n      },\n      binaryKeys: keys,\n    },\n    binary: item.binary,\n    pairedItem: { item: i },\n  });\n}\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "name": "Prepare intake"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": true,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "shim-base",
+              "name": "shimBase",
+              "value": "https://dome-agent-flow-staging.up.railway.app",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        300
+      ],
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').item.json.shimBase }}/api/v1/intake/email",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.intake) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ],
+      "name": "Email intake",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Agent Flow Service Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Continue only with NEW runs: a duplicate already went through the flow, and a\n// refused email has none (the shim logged it and filed intake_rejected). Each run\n// carries its own attachment as the binary \"invoice\" for \"Extract invoice (P3)\".\nconst responses = $input.all();\nconst emails = $('Prepare intake').all();\nconst out = [];\nfor (let i = 0; i < responses.length; i++) {\n  const email = emails[i];\n  for (const run of responses[i].json.runs || []) {\n    if (run.duplicate) continue;\n    const key = email.json.binaryKeys[run.attachment_index];\n    out.push({\n      json: { workflow_run_id: run.workflow_run_id, filename: run.filename },\n      binary: { invoice: email.binary[key] },\n      pairedItem: { item: i },\n    });\n  }\n}\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "name": "One item per run"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').item.json.shimBase }}/api/v1/runs/{{ $json.workflow_run_id }}/extract",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "contentType": "multipart-form-data",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "invoice"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        300
+      ],
+      "name": "Extract invoice (P3)",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Agent Flow Service Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').item.json.shimBase }}/api/v1/runs/{{ $json.workflow_run_id }}/rules",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        300
+      ],
+      "name": "Evaluate rules",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Agent Flow Service Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.decision.decision }}",
+              "rightValue": "route_to_council",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ],
+      "name": "Route to council?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').item.json.shimBase }}/api/v1/runs/{{ $json.workflow_run_id }}/council",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        200
+      ],
+      "name": "Council brief (P2)",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_IN_N8N",
+          "name": "Agent Flow Service Key"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "On invoice email": {
+      "main": [
+        [
+          {
+            "node": "Prepare intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare intake": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Email intake",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email intake": {
+      "main": [
+        [
+          {
+            "node": "One item per run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per run": {
+      "main": [
+        [
+          {
+            "node": "Extract invoice (P3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract invoice (P3)": {
+      "main": [
+        [
+          {
+            "node": "Evaluate rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate rules": {
+      "main": [
+        [
+          {
+            "node": "Route to council?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to council?": {
+      "main": [
+        [
+          {
+            "node": "Council brief (P2)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  }
+}
