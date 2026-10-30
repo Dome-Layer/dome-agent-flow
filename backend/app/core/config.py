@@ -21,6 +21,21 @@ class Settings(BaseSettings):
     # not enough on its own.
     approver_user_ids: str = ""
 
+    # Email intake (docs/email-intake.md). Comma-separated sender addresses
+    # (ap@example.com) and/or domains (example.com or @example.com). Empty means
+    # accept nobody (fail closed), like APPROVER_USER_IDS.
+    email_intake_allowed_senders: str = ""
+    # authserv-ids of the receiving mailbox whose Authentication-Results header is
+    # trusted for the DMARC verdict. Empty means none is trusted, so nothing passes.
+    email_intake_trusted_authserv_ids: str = ""
+    # Require a trusted DMARC pass. May only be false in development.
+    email_intake_require_dmarc: bool = True
+    email_intake_max_attachment_bytes: int = 10 * 1024 * 1024
+    # At most this many runs (paid extractions) per email.
+    email_intake_max_attachments: int = 5
+    # HMAC key for the stored sender hash. Empty means no hash is stored, domain only.
+    email_intake_hash_key: str = ""
+
     # Upstream tools the shim proxies
     doci_base_url: str = ""
     llc_base_url: str = ""
@@ -48,6 +63,20 @@ class Settings(BaseSettings):
     @property
     def approver_id_set(self) -> frozenset[str]:
         return frozenset(u.strip() for u in self.approver_user_ids.split(",") if u.strip())
+
+    @property
+    def email_allowed_addresses(self) -> frozenset[str]:
+        return frozenset(e for e in _csv_lower(self.email_intake_allowed_senders) if "@" in e[1:])
+
+    @property
+    def email_allowed_domains(self) -> frozenset[str]:
+        return frozenset(
+            e.lstrip("@") for e in _csv_lower(self.email_intake_allowed_senders) if "@" not in e[1:]
+        )
+
+    @property
+    def email_trusted_authserv_ids(self) -> frozenset[str]:
+        return frozenset(_csv_lower(self.email_intake_trusted_authserv_ids))
 
     @model_validator(mode="after")
     def validate_required_secrets(self) -> "Settings":
@@ -83,6 +112,21 @@ class Settings(BaseSettings):
                 f"(got environment={self.environment!r})"
             )
         return self
+
+    @model_validator(mode="after")
+    def validate_email_dmarc(self) -> "Settings":
+        # Without the DMARC check the allowlist trusts a From header, which anyone can
+        # write, so a spoofed email could start paid runs.
+        if not self.email_intake_require_dmarc and self.environment != "development":
+            raise ValueError(
+                "EMAIL_INTAKE_REQUIRE_DMARC must not be false outside environment=development "
+                f"(got environment={self.environment!r})"
+            )
+        return self
+
+
+def _csv_lower(value: str) -> list[str]:
+    return [v.strip().lower() for v in value.split(",") if v.strip()]
 
 
 settings = Settings()

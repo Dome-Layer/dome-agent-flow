@@ -10,12 +10,13 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from app.core.logging import get_logger
-from app.models.runs import RunRecord
+from app.models.runs import IntakeMetadata, RunRecord
 from app.models.schemas import Invoice, PolicyDecision
 from app.services.db import get_service_client
 
 logger = get_logger(__name__)
 _TABLE = "invoice_runs"
+_UNIQUE_VIOLATION = "23505"  # Postgres error code, surfaced by PostgREST
 
 
 def _now() -> str:
@@ -44,6 +45,8 @@ def _to_row(run: RunRecord) -> dict:
         "decision_note": run.decision_note,
         "resume_url": run.resume_url,
         "user_id": run.user_id,
+        "intake": run.intake.model_dump(mode="json") if run.intake else None,
+        "intake_key": run.intake_key,
         "created_at": run.created_at,
         "updated_at": run.updated_at,
     }
@@ -63,6 +66,8 @@ def _from_row(row: dict) -> RunRecord:
         decision_note=row.get("decision_note"),
         resume_url=row.get("resume_url"),
         user_id=row.get("user_id"),
+        intake=IntakeMetadata.model_validate(row["intake"]) if row.get("intake") else None,
+        intake_key=row.get("intake_key"),
         created_at=row.get("created_at"),
         updated_at=row.get("updated_at"),
     )
@@ -75,6 +80,27 @@ def create_run(run: RunRecord) -> RunRecord:
     if client is not None:
         client.table(_TABLE).insert(_to_row(run)).execute()
     return run
+
+
+def create_run_once(run: RunRecord) -> bool:
+    """Insert a run that carries an `intake_key`. False if another run already holds
+    the key: the unique index catches two deliveries of one email racing each other."""
+    try:
+        create_run(run)
+    except Exception as e:
+        if getattr(e, "code", None) == _UNIQUE_VIOLATION:
+            return False
+        raise
+    return True
+
+
+def get_run_by_intake_key(intake_key: str) -> Optional[RunRecord]:
+    client = get_service_client()
+    if client is None:
+        return None
+    res = client.table(_TABLE).select("*").eq("intake_key", intake_key).limit(1).execute()
+    rows = res.data or []
+    return _from_row(rows[0]) if rows else None
 
 
 def update_run(run: RunRecord) -> RunRecord:

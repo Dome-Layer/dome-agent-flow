@@ -5,6 +5,8 @@
 - `require_operator`: the service key or an approver; used by the pipeline steps,
   since each one makes paid model calls.
 - `require_approver`: a signed-in human on `APPROVER_USER_IDS`; used by the decision.
+- `require_service`: the service key only; used by email intake, which stands in
+  for the mailbox and so has no human caller.
 """
 
 from __future__ import annotations
@@ -82,6 +84,15 @@ async def require_operator(principal: Principal = Depends(require_principal)) ->
         return principal
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN, detail="Agent Flow is limited to approvers"
+    )
+
+
+async def require_service(principal: Principal = Depends(require_principal)) -> Principal:
+    """The service key (n8n) only."""
+    if principal.is_service:
+        return principal
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN, detail="Only the n8n service may submit email"
     )
 
 
