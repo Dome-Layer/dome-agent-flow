@@ -198,6 +198,33 @@ outside the EU, which sits awkwardly with the "regulated European businesses" pi
 For a showcase aimed at European regulated businesses, B tells the best story; A is the cheapest to try first.
 Whichever is chosen, set `EMAIL_INTAKE_TRUSTED_AUTHSERV_IDS` to the authserv-id seen in a real delivered message.
 
+### Chosen for the first demos: A, free, one new account
+
+The constraints (2026-10-31): professional on stage, free, as few new accounts as possible.
+
+```
+presenter's existing mailbox ──▶ invoices@domelayer.com (Cloudflare Email Routing, existing account)
+                                          │ forwards
+                                          ▼
+                      one new free Gmail account, used for nothing else ◀── n8n, IMAP
+```
+
+- **What the audience sees:** an address on `domelayer.com`. The Gmail account behind it is never shown.
+- **New accounts:** one, the dedicated Gmail account. Cloudflare and the sender's mailbox already exist.
+- **Why not forward to the presenter's own mailbox (zero new accounts):** an IMAP app password opens the whole
+  account, so n8n would hold the key to personal mail, and a Gmail filter limiting n8n to one label does not
+  narrow what the credential can read. Gmail also tends to hide a message that comes back to the account that
+  sent it.
+- **Sender:** the presenter's existing personal address, on `EMAIL_INTAKE_ALLOWED_SENDERS` as an **exact address**
+  (never the provider's domain). Add a guest's exact address on the day if someone else should send one.
+- **Trusted authserv-id:** expected to be `mx.google.com`, since the dedicated Gmail account evaluates the mail;
+  confirm it from the first delivered test message.
+- **Sending as `@domelayer.com`** would need an outgoing mail service; Cloudflare Email Routing only receives.
+  Not needed: the recipient address is the one on screen.
+- **Privacy:** Google holds the forwarded originals, outside the EU. Acceptable for a private demo; empty the
+  inbox after each demo and cover it in the privacy policy line. Moving to option B later only changes the
+  routing destination, the IMAP credential and `EMAIL_INTAKE_TRUSTED_AUTHSERV_IDS`.
+
 ## Privacy policy (website repo)
 
 Probably yes, a line is needed. Today the policy (in the website repo, not changed here) covers the form. Email
@@ -208,7 +235,7 @@ for the maintainer; the wording belongs with the rest of the policy.
 
 ## Open decisions for the maintainer
 
-1. Which mailbox (A, B or C above), and therefore the value of `EMAIL_INTAKE_TRUSTED_AUTHSERV_IDS`.
+1. Mailbox: A with a dedicated Gmail destination for the first demos (above); whether to move to B later.
 2. Retention in the mailbox: the full messages sit there. Suggest a rule that deletes after the demo, or empties
    the folder at teardown.
 3. Whether to set `EMAIL_INTAKE_HASH_KEY` (pseudonymous linkability) or leave it empty (domain only).

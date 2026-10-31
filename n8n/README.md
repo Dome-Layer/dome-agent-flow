@@ -82,9 +82,20 @@ What the workflow does between the form and the shim:
 ## Email intake
 
 A second workflow, imported next to the form one (the form workflow is unchanged and keeps working).
-Which mailbox to use is still the maintainer's decision; the design note lists the options.
+The first demos use Cloudflare Email Routing (`invoices@` on `domelayer.com`) forwarding to one dedicated,
+free Gmail account that n8n reads (design note, *Chosen for the first demos*). One-off setup:
 
-**Shim settings first** (Railway, staging; names only, values never committed):
+1. Create the dedicated Gmail account, used for nothing else. Turn on 2-Step Verification and create an
+   **app password** for n8n (the IMAP node signs in with a password, not Google OAuth).
+2. Cloudflare dashboard, `domelayer.com`, **Email**, **Email Routing**: enable it (it sets the MX records; use a
+   subdomain if the domain already receives mail elsewhere). Add the dedicated Gmail under **Destination
+   addresses** and confirm the verification email. Add a **routing rule**: custom address `invoices`, action
+   *Send to an email*, the dedicated Gmail.
+3. Send a test from the presenter's mailbox to the `invoices@` address. In the dedicated Gmail, **Show original**:
+   the topmost `Authentication-Results:` should start with the authserv-id (expected `mx.google.com`) and show
+   `dmarc=pass` for the sender's domain.
+
+**Shim settings** (Railway, staging; names only, values never committed):
 `EMAIL_INTAKE_ALLOWED_SENDERS` (addresses and/or domains; empty accepts nobody),
 `EMAIL_INTAKE_TRUSTED_AUTHSERV_IDS` (the receiving mailbox's authserv-id, read from the
 `Authentication-Results` header of a real delivered message; empty trusts nothing), and optionally
@@ -92,8 +103,11 @@ Which mailbox to use is still the maintainer's decision; the design note lists t
 Apply `backend/migrations/20261030_invoice_runs_intake.sql` to the staging database before the
 shim starts.
 
+**Then in n8n:**
+
 1. Create an n8n **credential** of type *IMAP* named **"Agent Flow Invoice Mailbox"** in the n8n UI:
-   user, password (an app password where the provider offers one), host, port `993`, SSL/TLS on.
+   user (the dedicated Gmail address), password (its app password), host `imap.gmail.com`, port `993`,
+   SSL/TLS on.
    It lives only in n8n's encrypted credential store; it is never committed. The committed workflow
    references it by name with the placeholder id `REPLACE_IN_N8N`, as for the service key.
 2. The *Agent Flow Service Key* credential (above) is reused by the four HTTP nodes.
