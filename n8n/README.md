@@ -100,8 +100,8 @@ free Gmail account that n8n reads (design note, *Chosen for the first demos*). O
 `EMAIL_INTAKE_TRUSTED_AUTHSERV_IDS` (the receiving mailbox's authserv-id, read from the
 `Authentication-Results` header of a real delivered message; empty trusts nothing), and optionally
 `EMAIL_INTAKE_HASH_KEY`, `EMAIL_INTAKE_MAX_ATTACHMENT_BYTES`, `EMAIL_INTAKE_MAX_ATTACHMENTS`.
-Apply `backend/migrations/20261030_invoice_runs_intake.sql` to the staging database before the
-shim starts.
+The database change, `backend/migrations/011_invoice_runs_intake.sql`, is already applied to staging
+(2026-10-31); any new database needs it before this shim starts there.
 
 **Then in n8n:**
 

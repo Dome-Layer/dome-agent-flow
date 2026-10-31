@@ -257,6 +257,7 @@ for the maintainer; the wording belongs with the rest of the policy.
 
 ## Database change
 
-`backend/migrations/20261030_invoice_runs_intake.sql` adds `intake jsonb` and `intake_key text` with a unique index
-to `invoice_runs`. It must be applied to staging **before** the shim from this PR starts there: the shim writes
+`backend/migrations/011_invoice_runs_intake.sql` adds `intake jsonb` and `intake_key text` with a unique index
+to `invoice_runs`. Applied to staging on 2026-10-31 and recorded in `dome_schema_migrations` as
+`011_invoice_runs_intake.sql`. Any other database needs it **before** this shim starts there: the shim writes
 `intake` on every new run, form runs included.
