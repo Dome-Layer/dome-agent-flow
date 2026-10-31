@@ -25,19 +25,6 @@ body {
               color var(--duration-default) var(--ease-in-out);
 }
 
-/* ─── Site header ────────────────────────────────────────────────── */
-.site-header {
-  background: rgba(255, 255, 255, 0.90);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-bottom: 0.5px solid var(--color-border-default);
-}
-
-[data-theme="dark"] .site-header {
-  background: rgba(10, 10, 10, 0.90);
-  border-bottom-color: var(--color-border-subtle);
-}
-
 /* ─── Focus ring (WCAG 2.1 AA) ────────────────────────────────── */
 *:focus-visible {
   outline: 2px solid rgba(0, 128, 255, 0.5);
