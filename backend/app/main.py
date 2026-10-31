@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.intake import router as intake_router
 from app.api.runs import router as runs_router
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
@@ -44,3 +45,4 @@ async def health() -> dict:
 
 
 app.include_router(runs_router, prefix="/api/v1")
+app.include_router(intake_router, prefix="/api/v1")

@@ -73,14 +73,76 @@ What the workflow does between the form and the shim:
 
 - **Form trigger** (committed default): a hosted upload form at the workflow's form URL;
   reliable for live demos.
-- **Email trigger (IMAP)**: add an *Email Trigger (IMAP)* node on a dedicated AP inbox for
-  the realistic "vendor emails an invoice" entry; wire its attachment into the same
-  *Create run → Extract* path.
+- **Email trigger (IMAP)**: a separate workflow,
+  [`../workflows/invoice_email_intake.json`](../workflows/invoice_email_intake.json), reads a
+  dedicated mailbox and sends each email to the shim's `POST /intake/email`, which decides what is
+  accepted. See *Email intake* below and the design note
+  [`../docs/email-intake.md`](../docs/email-intake.md).
+
+## Email intake
+
+A second workflow, imported next to the form one (the form workflow is unchanged and keeps working).
+The first demos use Cloudflare Email Routing (`invoices@` on `domelayer.com`) forwarding to one dedicated,
+free Gmail account that n8n reads (design note, *Chosen for the first demos*). One-off setup:
+
+1. Create the dedicated Gmail account, used for nothing else. Turn on 2-Step Verification and create an
+   **app password** for n8n (the IMAP node signs in with a password, not Google OAuth).
+2. Cloudflare dashboard, `domelayer.com`, **Email**, **Email Routing**: enable it (it sets the MX records; use a
+   subdomain if the domain already receives mail elsewhere). Add the dedicated Gmail under **Destination
+   addresses** and confirm the verification email. Add a **routing rule**: custom address `invoices`, action
+   *Send to an email*, the dedicated Gmail.
+3. Send a test from the presenter's mailbox to the `invoices@` address. In the dedicated Gmail, **Show original**:
+   the topmost `Authentication-Results:` should start with the authserv-id (expected `mx.google.com`) and show
+   `dmarc=pass` for the sender's domain.
+
+**Shim settings** (Railway, staging; names only, values never committed):
+`EMAIL_INTAKE_ALLOWED_SENDERS` (addresses and/or domains; empty accepts nobody),
+`EMAIL_INTAKE_TRUSTED_AUTHSERV_IDS` (the receiving mailbox's authserv-id, read from the
+`Authentication-Results` header of a real delivered message; empty trusts nothing), and optionally
+`EMAIL_INTAKE_HASH_KEY`, `EMAIL_INTAKE_MAX_ATTACHMENT_BYTES`, `EMAIL_INTAKE_MAX_ATTACHMENTS`.
+The database change, `backend/migrations/011_invoice_runs_intake.sql`, is already applied to staging
+(2026-10-31); any new database needs it before this shim starts there.
+
+**Then in n8n:**
+
+1. Create an n8n **credential** of type *IMAP* named **"Agent Flow Invoice Mailbox"** in the n8n UI:
+   user (the dedicated Gmail address), password (its app password), host `imap.gmail.com`, port `993`,
+   SSL/TLS on.
+   It lives only in n8n's encrypted credential store; it is never committed. The committed workflow
+   references it by name with the placeholder id `REPLACE_IN_N8N`, as for the service key.
+2. The *Agent Flow Service Key* credential (above) is reused by the four HTTP nodes.
+3. Import [`../workflows/invoice_email_intake.json`](../workflows/invoice_email_intake.json). If
+   either credential was created after the import, select it in *On invoice email* and in each HTTP
+   node.
+4. Check *Config* points at the right shim, then **Publish**. The trigger listens only while the
+   workflow is published.
+5. Test: send a PDF invoice from an allowlisted address. It appears in the approval queue within
+   seconds if the rules route it to a human. Then send one from another address and check that the
+   shim answered `rejected` (the execution shows the response) and that P6 shows an
+   `intake_rejected` event.
+
+What each node does:
+- **On invoice email**: *Email Trigger (IMAP)*, format **Simple** with attachments downloaded,
+  `UNSEEN` mail only, marks mail as read. Simple, not Resolved, on purpose: it keeps the *first*
+  `Authentication-Results` header, the one the receiving server added (design note, section 3).
+- **Prepare intake**: builds the request for the shim: Message-ID, From, Date,
+  `Authentication-Results` and the attachments as base64. Subject, body and recipients are not sent.
+- **Email intake**: `POST /api/v1/intake/email`. The shim checks the allowlist, the DMARC verdict,
+  the attachments (type by content, size, count) and whether this email was seen before, then
+  creates one run per invoice attachment. It always answers 200 with an `outcome`.
+- **One item per run**: one item per **new** run, carrying that run's attachment as the binary
+  `invoice`. A refused or duplicate email yields no items, so the execution stops there.
+- **Extract invoice (P3)**, **Evaluate rules**, **Route to council?**, **Council brief (P2)**: the same
+  shim calls as the form workflow, addressed by `$json.workflow_run_id`. The shim refuses to extract
+  a file other than the attachment it vetted.
+
+Emails carry no category, so email runs are evaluated without one, as an API run would be.
 
 ## Flow
 
-`trigger → Config → POST /runs → POST /runs/{id}/extract → POST /runs/{id}/rules → IF route_to_council
-→ POST /runs/{id}/council`. Auto-approved/rejected runs finalise in `/rules`; human-needed
+Form: `trigger → Config → POST /runs → POST /runs/{id}/extract → POST /runs/{id}/rules → IF route_to_council
+→ POST /runs/{id}/council`. Email: `trigger → POST /intake/email → one item per new run →
+POST /runs/{id}/extract`, then as for the form. Auto-approved/rejected runs finalise in `/rules`; human-needed
 runs sit in `pending_approval` for the branded approval page (`agent-flow.domelayer.com`),
 which the shim finalises and records. Every step is emitted to `governance_events` with one
 shared `workflow_run_id`, so P6 reconstructs the run as a single cross-tool timeline.

@@ -17,12 +17,13 @@ accept only the n8n service key or an approver on `APPROVER_USER_IDS` (empty mea
 | `backend/` | FastAPI shim (Python 3.12): `app/api/` routes (`runs.py`) and auth (`deps.py`); `app/services/` rules engine (`rules.py`, `policy.py`), normaliser, run state (`runs.py`, `db.py`), governance emit, P3 and P2 proxies (`upstream.py`); `policy.yaml` the default policy; `tests/` |
 | `frontend/` | Next.js approval page (static export on a Cloudflare Worker, `agent-flow.staging.domelayer.com`) |
 | `workflows/invoice_to_approval.json` | the n8n workflow (form trigger, then HTTP calls to the shim only) |
+| `workflows/invoice_email_intake.json` | the email path (IMAP trigger, then `POST /intake/email` and the same shim calls); design in `docs/email-intake.md` |
 | `n8n/` | the self-hosted n8n image and its Railway config, with `README.md` on importing the workflow |
 
 The shim owns the logic so it is testable in CI; n8n is the visible orchestrator and calls only the shim's JSON
 API with the `X-Service-Key` header. Run state lives in `invoice_runs` (mutable); the audit trail is
 `governance_events` (append-only). Governance action types, all `agent_id="agent-flow"`: `invoice_received`,
-`rules_evaluated`, `human_approval`, `invoice_approved` / `invoice_rejected` (P3 adds `extraction`, P2
+`rules_evaluated`, `human_approval`, `invoice_approved` / `invoice_rejected`, `intake_rejected` (a refused email, no run) (P3 adds `extraction`, P2
 `deliberation`, joined by the `X-Workflow-Run-Id` header).
 
 ## Branches and deploys

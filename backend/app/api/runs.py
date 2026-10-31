@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from dome_core.governance import hash_input_text
+from dome_core.governance import hash_input_bytes, hash_input_text
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 
 from app.api.deps import (
@@ -23,7 +23,13 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.models.runs import CouncilRequest, CreateRunRequest, DecisionRequest, RunRecord
+from app.models.runs import (
+    CouncilRequest,
+    CreateRunRequest,
+    DecisionRequest,
+    IntakeMetadata,
+    RunRecord,
+)
 from app.services import governance, upstream
 from app.services import runs as runs_svc
 from app.services.normalize import invoice_from_extraction
@@ -40,7 +46,7 @@ _STATUS_FOR_DECISION = {
 }
 
 
-def _gen_run_id() -> str:
+def gen_run_id() -> str:
     return f"invoice-{datetime.now(timezone.utc):%Y-%m-%d}-{uuid.uuid4().hex[:8]}"
 
 
@@ -51,6 +57,17 @@ def _load(workflow_run_id: str) -> RunRecord:
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Run {workflow_run_id} not found"
         )
     return run
+
+
+def _check_emailed_file(run: RunRecord, data: bytes) -> None:
+    """An email run extracts only the attachment the intake vetted (type, size, sender)."""
+    if run.intake is None or run.intake.channel != "email":
+        return
+    if hash_input_bytes(data) != run.intake.attachment_sha256:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="File does not match the emailed attachment of this run",
+        )
 
 
 def _council_question(run: RunRecord) -> str:
@@ -110,13 +127,17 @@ def _emit_terminal(
 async def create_run(
     body: CreateRunRequest, principal: Principal = Depends(require_operator)
 ) -> RunRecord:
+    # Email runs are created by POST /intake/email only, after its checks.
+    channel = "form" if body.source == "form" else "api"
+    received_at = datetime.now(timezone.utc).isoformat()
     run = RunRecord(
-        workflow_run_id=_gen_run_id(),
+        workflow_run_id=gen_run_id(),
         status="received",
         source=body.source,
         filename=body.filename,
         resume_url=body.resume_url,
         user_id=principal.user_id,
+        intake=IntakeMetadata(channel=channel, received_at=received_at),
     )
     runs_svc.create_run(run)
     governance.emit_event(
@@ -125,6 +146,7 @@ async def create_run(
         input_hash=hash_input_text(body.filename or run.workflow_run_id),
         input_type="invoice_pdf",
         output_summary=f"Invoice run received via {body.source}: {body.filename or 'N/A'}",
+        metadata={"channel": channel, "received_at": received_at},
     )
     return run
 
@@ -138,6 +160,7 @@ async def extract(
 ) -> RunRecord:
     run = _load(workflow_run_id)
     data = await file.read()
+    _check_emailed_file(run, data)
     result = await upstream.extract_invoice(
         data, file.filename or "invoice", file.content_type, workflow_run_id
     )
